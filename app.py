@@ -78,7 +78,7 @@ async def handle_message(message: cl.Message):
 
     try:
 
-        stream = Runner.run_streamed(agent, user_input, timeout=120)
+        stream = Runner.run_streamed(agent, user_input)
 
         try:
 
