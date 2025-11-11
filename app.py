@@ -9,6 +9,7 @@ from agents import (
     set_tracing_disabled,
 )
 from tools import scrape_yp_listing
+import json
 
 _: bool = load_dotenv(find_dotenv())
 
@@ -75,8 +76,9 @@ async def handle_message(message: cl.Message):
                                 await cl.Message(
                                     content=f"🔧 Tool called: {tool_call.function.name}"
                                 ).send()
-                                # Assuming scrape_yp_listing returns a string or can be converted to string
-                                tool_output = await scrape_yp_listing(url=tool_call.function.arguments)
+                                # The arguments are a JSON string, so we need to parse them
+                                function_args = json.loads(tool_call.function.arguments)
+                                tool_output = await scrape_yp_listing(**function_args)
                                 await cl.Message(content=f"Tool output: {tool_output}").send()
                                 # You might need to send this output back to the model for further processing
                                 # For now, we just display it.
