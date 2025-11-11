@@ -28,7 +28,7 @@ external_client: AsyncOpenAI = AsyncOpenAI(
 
 # 2. Which LLM Model?
 llm_model: OpenAIChatCompletionsModel = OpenAIChatCompletionsModel(
-    model="gemini-2.5-flash", openai_client=external_client
+    model="gemini-1.5-flash", openai_client=external_client
 )
 
 # Initialize Agent and attach the tool
@@ -63,30 +63,57 @@ async def start():
     await cl.Message(content="🕵️ Send me a any YellowPage URL — I’ll scrape and summarize contacts using my tool!").send()
 
 @cl.on_message
+
 async def handle_message(message: cl.Message):
+
     user_input = message.content.strip()
+
     
+
     # Start a message to stream tokens with 🤖 Assistant
+
     msg = cl.Message(content="🤖 Data: ")
+
     await msg.send()
+
     try:
-        stream = Runner.run_streamed(agent, user_input)
+
+        stream = Runner.run_streamed(agent, user_input, timeout=120)
+
         try:
+
             async for event in stream.stream_events():
+
                 #  Stream model tokens
+
                 if event.type == "raw_response_event" and isinstance(
+
                     event.data, ResponseTextDeltaEvent
+
                 ):
+
                     await msg.stream_token(event.data.delta)
 
+
+
                 #  Notify when a tool is called
+
                 elif event.type == "run_item_stream_event" and event.name == "tool_called":
+
                     await cl.Message(
+
                         content=f"🔧 Tool called: {event.item.raw_item.name}"
+
                     ).send()
 
+
+
         finally:
+
             # Ensure the spinner stops and message finalizes
+
             await msg.update()
+
     except Exception as e:
+
         await cl.Message(content=f"An error occurred: {e}").send()
