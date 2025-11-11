@@ -2,13 +2,10 @@ import os
 import asyncio
 from dotenv import load_dotenv, find_dotenv
 import chainlit as cl
-# from openai import AsyncOpenAI
+from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionMessageParam
 from openai.types.responses import ResponseTextDeltaEvent
 from agents import (
-    Agent,
-    Runner,
-    AsyncOpenAI,
-    OpenAIChatCompletionsModel,
     set_tracing_disabled,
 )
 from tools import scrape_yp_listing
@@ -26,94 +23,65 @@ external_client: AsyncOpenAI = AsyncOpenAI(
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
 )
 
-# 2. Which LLM Model?
-llm_model: OpenAIChatCompletionsModel = OpenAIChatCompletionsModel(
-    model="gemini-1.5-flash", openai_client=external_client
-)
-
-# Initialize Agent and attach the tool
-agent = Agent(
-    name="YP Extractor",
-    model=llm_model,
-    tools=[scrape_yp_listing],
-    instructions="""
-    You are a YellowPages.ca data extraction expert.
-
-    When given a YellowPages.ca search results page URL:
-      1. Call scrape_yp_listing(url)
-      2. Collect all available listings on that page
-      3. Return a JSON array of business details, including:
-         - name (string)
-         - phone (string)
-         - website (string or 'Not found')
-      4. Do NOT open individual business pages.
-      5. Return data in only clean TABLE form (In rows and columns) — no commentary or text around it.
-    """,
-)
-
-# async def test_run():
-#     result = await Runner.run(agent, "https://www.yellowpages.ca/search/si/1/plumber/Toronto,+ON")
-#     print(result)
-# if __name__ == "__main__":
-#     asyncio.run(test_run())
-
-
 @cl.on_chat_start
 async def start():
     await cl.Message(content="🕵️ Send me a any YellowPage URL — I’ll scrape and summarize contacts using my tool!").send()
 
 @cl.on_message
-
 async def handle_message(message: cl.Message):
-
     user_input = message.content.strip()
-
     
-
     # Start a message to stream tokens with 🤖 Assistant
-
     msg = cl.Message(content="🤖 Data: ")
-
     await msg.send()
 
+    messages: list[ChatCompletionMessageParam] = [
+        {"role": "user", "content": user_input}
+    ]
+
     try:
+        response = await external_client.chat.completions.create(
+            model="gemini-1.5-flash",
+            messages=messages,
+            stream=True,
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": scrape_yp_listing.__name__,
+                        "description": scrape_yp_listing.__doc__,
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "url": {"type": "string", "description": "The URL to scrape"}
+                            },
+                            "required": ["url"],
+                        },
+                    },
+                }
+            ],
+            tool_choice="auto",
+        )
 
-        stream = Runner.run_streamed(agent, user_input)
-
-        try:
-
-            async for event in stream.stream_events():
-
-                #  Stream model tokens
-
-                if event.type == "raw_response_event" and isinstance(
-
-                    event.data, ResponseTextDeltaEvent
-
-                ):
-
-                    await msg.stream_token(event.data.delta)
-
-
-
-                #  Notify when a tool is called
-
-                elif event.type == "run_item_stream_event" and event.name == "tool_called":
-
-                    await cl.Message(
-
-                        content=f"🔧 Tool called: {event.item.raw_item.name}"
-
-                    ).send()
-
-
-
-        finally:
-
-            # Ensure the spinner stops and message finalizes
-
-            await msg.update()
+        async for chunk in response:
+            if chunk.choices and chunk.choices[0].delta:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    await msg.stream_token(delta.content)
+                if delta.tool_calls:
+                    for tool_call in delta.tool_calls:
+                        if tool_call.function:
+                            if tool_call.function.name == scrape_yp_listing.__name__:
+                                await cl.Message(
+                                    content=f"🔧 Tool called: {tool_call.function.name}"
+                                ).send()
+                                # Assuming scrape_yp_listing returns a string or can be converted to string
+                                tool_output = await scrape_yp_listing(url=tool_call.function.arguments)
+                                await cl.Message(content=f"Tool output: {tool_output}").send()
+                                # You might need to send this output back to the model for further processing
+                                # For now, we just display it.
 
     except Exception as e:
-
         await cl.Message(content=f"An error occurred: {e}").send()
+    finally:
+        await msg.update()
