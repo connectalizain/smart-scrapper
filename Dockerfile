@@ -18,4 +18,7 @@ COPY . .
 EXPOSE 8000
 
 # Run the application
-CMD ["chainlit", "run", "app.py", "-w"]
+# We explicitly set the host to 0.0.0.0 and port to 8000 so the app is accessible 
+# from the host environment (like Hugging Face Spaces).
+# We also add -h (headless) to prevent a browser from opening server-side.
+CMD ["chainlit", "run", "app.py", "-w", "--host", "0.0.0.0", "--port", "8000", "-h"]
