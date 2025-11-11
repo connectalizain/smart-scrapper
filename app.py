@@ -49,15 +49,9 @@ async def handle_message(message: cl.Message):
                 {
                     "type": "function",
                     "function": {
-                        "name": scrape_yp_listing.__name__,
-                        "description": scrape_yp_listing.__doc__,
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "url": {"type": "string", "description": "The URL to scrape"}
-                            },
-                            "required": ["url"],
-                        },
+                        "name": scrape_yp_listing.name,
+                        "description": scrape_yp_listing.description,
+                        "parameters": scrape_yp_listing.params_json_schema,
                     },
                 }
             ],
