@@ -69,21 +69,24 @@ async def handle_message(message: cl.Message):
     # Start a message to stream tokens with 🤖 Assistant
     msg = cl.Message(content="🤖 Data: ")
     await msg.send()
-    stream = Runner.run_streamed(agent, user_input)
     try:
-        async for event in stream.stream_events():
-            #  Stream model tokens
-            if event.type == "raw_response_event" and isinstance(
-                event.data, ResponseTextDeltaEvent
-            ):
-                await msg.stream_token(event.data.delta)
+        stream = Runner.run_streamed(agent, user_input)
+        try:
+            async for event in stream.stream_events():
+                #  Stream model tokens
+                if event.type == "raw_response_event" and isinstance(
+                    event.data, ResponseTextDeltaEvent
+                ):
+                    await msg.stream_token(event.data.delta)
 
-            #  Notify when a tool is called
-            elif event.type == "run_item_stream_event" and event.name == "tool_called":
-                await cl.Message(
-                    content=f"🔧 Tool called: {event.item.raw_item.name}"
-                ).send()
+                #  Notify when a tool is called
+                elif event.type == "run_item_stream_event" and event.name == "tool_called":
+                    await cl.Message(
+                        content=f"🔧 Tool called: {event.item.raw_item.name}"
+                    ).send()
 
-    finally:
-        # Ensure the spinner stops and message finalizes
-        await msg.update()
+        finally:
+            # Ensure the spinner stops and message finalizes
+            await msg.update()
+    except Exception as e:
+        await cl.Message(content=f"An error occurred: {e}").send()
