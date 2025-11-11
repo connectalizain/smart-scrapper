@@ -3,18 +3,22 @@ import asyncio
 import re
 import urllib.parse
 from agents import function_tool
+import chainlit as cl
 
 @function_tool
 async def scrape_yp_listing(url: str):
     results = []
+    await cl.Message(content=f"Starting to scrape: {url}").send()
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)  # Change to True later
+        browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
         await page.goto(url, timeout=60000)
         await page.wait_for_selector(".listing", timeout=30000)
 
         listings = await page.query_selector_all(".listing")
+        await cl.Message(content=f"Found {len(listings)} listings. Processing...").send()
         for idx, listing in enumerate(listings, 1):
+            await cl.Message(content=f"Processing listing {idx}/{len(listings)}...").send()
             # --- Business Name ---
             name_el = await listing.query_selector(".listing__name--link")
             name = (
@@ -42,6 +46,7 @@ async def scrape_yp_listing(url: str):
                             phone = match.group(0)
             except Exception as e:
                 print(f"[{idx}] Phone error for {name}: {e}")
+                await cl.Message(content=f"[{idx}] Phone error for {name}: {e}").send()
 
             # --- Website ---
             website = "Not found"
@@ -63,8 +68,10 @@ async def scrape_yp_listing(url: str):
                 "website": website.strip(),
             })
             print(f"[{idx}] {name}: {phone} | {website}")
+            await cl.Message(content=f"[{idx}] {name}: {phone} | {website}").send()
 
         await browser.close()
+        await cl.Message(content="Scraping completed.").send()
     return results
 
 
