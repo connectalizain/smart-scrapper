@@ -1,3 +1,12 @@
+---
+title: Smart Scrapper
+emoji: 🕵️
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 8000
+---
+
 # Smart Scrapper
 
 Smart Scrapper is a data scraping tool designed to extract business information from YellowPages.ca. It provides a simple web interface to initiate scraping and view results.
