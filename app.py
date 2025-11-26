@@ -42,7 +42,7 @@ async def handle_message(message: cl.Message):
 
     try:
         response = await external_client.chat.completions.create(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             messages=messages,
             stream=True,
             tools=[
